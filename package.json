@@ -1,0 +1,11 @@
+{
+  "name": "moms-food-delight",
+  "version": "1.0.0",
+  "description": "Online ordering website for Mom's Food Delight",
+  "main": "index.html",
+  "scripts": {
+    "dev": "npx -y http-server -p 3000"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
