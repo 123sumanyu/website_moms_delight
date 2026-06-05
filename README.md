@@ -34,8 +34,3 @@ A premium, modern, responsive single-page web application (SPA) built for **Mom'
 
 ---
 
-## ⚙️ Default Store Settings
-
-*   **Payee Name**: `RENU CHUGH`
-*   **UPI VPA (Paytm)**: `paytmqr5cz2tn@ptys`
-*   **WhatsApp Business Number**: `9818946641`
