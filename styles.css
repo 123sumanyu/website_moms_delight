@@ -1938,5 +1938,87 @@ input:checked + .slider:before {
     .cart-sidebar {
         width: 100%;
         right: -100%;
-    }
+}
+
+/* --- Sabzi Inventory Toggle Styles --- */
+.sabzi-toggle-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.sabzi-toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    transition: border var(--transition-fast);
+}
+
+.sabzi-toggle-row:hover {
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.sabzi-toggle-name {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* --- Out of Stock UI elements --- */
+.menu-card.out-of-stock {
+    opacity: 0.75;
+}
+
+.menu-card.out-of-stock .card-img {
+    filter: grayscale(80%) blur(1px);
+}
+
+.out-of-stock-badge {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(239, 68, 68, 0.95);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: var(--border-radius-sm);
+    font-weight: 700;
+    font-size: 14px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* --- Disabled Custom Choices --- */
+.custom-choice-item.disabled {
+    opacity: 0.45;
+    text-decoration: line-through;
+    cursor: not-allowed;
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+}
+
+.custom-choice-item.disabled:hover {
+    border-color: var(--border-color) !important;
+}
+
+.custom-choice-item.disabled .choice-checkbox,
+.custom-choice-item.disabled .choice-radio {
+    border-color: var(--border-color) !important;
+}
+
+/* --- Passcode Modal Animation & Error --- */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-8px); }
+    40%, 80% { transform: translateX(8px); }
+}
+
+.shake {
+    animation: shake 0.4s ease-in-out;
 }

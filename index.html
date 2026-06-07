@@ -187,6 +187,15 @@
                         </form>
                     </div>
 
+                    <!-- Sabzi Inventory Card -->
+                    <div class="admin-card">
+                        <h3><i class="fa-solid fa-carrot"></i> Sabzi Inventory</h3>
+                        <p class="section-subtitle" style="margin-bottom: 16px; font-size: 13px;">Toggle Main Course dishes. Out of stock items are blocked from orders and thali customizations.</p>
+                        <div class="sabzi-toggle-list" id="admin-sabzi-toggles">
+                            <!-- Rendered dynamically by JavaScript -->
+                        </div>
+                    </div>
+
                     <!-- Simulate Orders Card -->
                     <div class="admin-card">
                         <h3><i class="fa-solid fa-list-check"></i> Manage Pending Orders (Local Sandbox)</h3>
@@ -474,6 +483,30 @@
                         <p class="redirect-hint"><i class="fa-solid fa-circle-info"></i> Clicking above opens WhatsApp. Send the pre-filled message without modifying it to complete placement.</p>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADMIN PASSCODE AUTHENTICATION MODAL -->
+    <div id="admin-auth-modal" class="modal">
+        <div class="modal-content" style="max-width: 380px;">
+            <div class="modal-header">
+                <h3>Admin Verification</h3>
+                <button class="modal-close" id="auth-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="admin-auth-form" class="checkout-form">
+                    <div class="form-group">
+                        <label for="auth-passcode">Enter Admin Passcode *</label>
+                        <input type="password" id="auth-passcode" placeholder="••••" required style="text-align: center; font-size: 24px; letter-spacing: 8px;">
+                        <small class="help-text text-center">Verify passcode parsed from server environment config file.</small>
+                    </div>
+                    <div id="auth-error-msg" class="alert alert-warning hidden" style="background: rgba(239, 68, 68, 0.1); color: var(--error-color); border-color: rgba(239, 68, 68, 0.2); justify-content: center;">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Incorrect passcode. Try again!</span>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Unlock Dashboard</button>
+                </form>
             </div>
         </div>
     </div>

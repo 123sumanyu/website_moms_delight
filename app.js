@@ -392,6 +392,8 @@ let cart = [];
 let activeOrder = null;
 let orderHistory = [];
 let customizeTargetItem = null;
+window.sabziAvailability = {};
+let isAdminAuthorized = false;
 
 // Business Settings Default config
 let storeConfig = {
@@ -403,10 +405,59 @@ let storeConfig = {
     packagingCharge: 10 // ₹10 per thali/bowl
 };
 
+// Fetch dynamic config from server env file
+async function loadRemoteConfig() {
+    try {
+        const res = await fetch('/api/config');
+        const remote = await res.json();
+        
+        // Merge server configuration settings
+        storeConfig.upiId = remote.upiId;
+        storeConfig.payeeName = remote.payeeName;
+        storeConfig.whatsappNumber = remote.whatsappNumber;
+        
+        // Populate Admin Config settings inputs with values
+        document.getElementById("config-upi").value = storeConfig.upiId;
+        if (document.getElementById("config-payee-name")) {
+            document.getElementById("config-payee-name").value = storeConfig.payeeName;
+        }
+        document.getElementById("config-phone").value = storeConfig.whatsappNumber;
+    } catch (err) {
+        console.warn("Could not fetch remote server configuration, using defaults.", err);
+    }
+}
+
+// Fetch availability map from server
+async function loadMenuAvailability() {
+    try {
+        const res = await fetch('/api/menu-availability');
+        window.sabziAvailability = await res.json();
+    } catch (err) {
+        console.warn("Could not fetch menu availability from server.", err);
+        // Fallback to all true
+        window.sabziAvailability = {
+            "Dal Makhni": true,
+            "Dal Fry": true,
+            "Mix Dal": true,
+            "Kadhi Pakora": true,
+            "Rajma": true,
+            "White Chole": true,
+            "Paneer Bhurji": true,
+            "Gravy Paneer": true,
+            "Dry Sabzi": true
+        };
+    }
+}
+
 // 3. Page Initialization & Loading Storage
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     loadStoreConfig();
     loadLocalStorageData();
+    
+    // Remote loadings
+    await loadRemoteConfig();
+    await loadMenuAvailability();
+
     renderCategories();
     renderMenuGrid();
     setupEventListeners();
@@ -522,17 +573,23 @@ function renderMenuGrid() {
     container.innerHTML = filtered.map(item => {
         const cartQty = getQuantityInCart(item.id);
         const itemPrice = typeof item.price === 'object' ? `₹${item.price.half} - ₹${item.price.full}` : `₹${item.price}`;
-        const requiresBtnText = item.requiresCustomization ? 'Customize' : 'Add to Cart';
-        const requiresBtnClass = item.requiresCustomization ? 'btn-secondary' : 'btn-primary';
+        
+        // Check availability
+        const isOutOfStock = item.category === "Main Course" && window.sabziAvailability && window.sabziAvailability[item.name] === false;
+        
+        const requiresBtnText = isOutOfStock ? 'Out of Stock' : (item.requiresCustomization ? 'Customize' : 'Add to Cart');
+        const requiresBtnClass = isOutOfStock ? 'btn-secondary' : (item.requiresCustomization ? 'btn-secondary' : 'btn-primary');
+        const disabledAttr = isOutOfStock ? 'disabled' : '';
         
         return `
-            <div class="menu-card" data-id="${item.id}">
+            <div class="menu-card ${isOutOfStock ? 'out-of-stock' : ''}" data-id="${item.id}">
                 <div class="card-image-area">
                     <img src="${item.image}" alt="${item.name}" class="card-img" onerror="this.src='https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600'">
                     <span class="veg-indicator ${item.isVeg ? '' : 'non-veg'}">
                         <i class="fa-solid fa-circle-stop"></i> ${item.isVeg ? 'VEG' : 'EGG'}
                     </span>
                     <span class="card-price-tag">${itemPrice}</span>
+                    ${isOutOfStock ? `<div class="out-of-stock-badge">Out of Stock</div>` : ''}
                 </div>
                 <div class="card-details">
                     <div class="card-title-row">
@@ -542,14 +599,14 @@ function renderMenuGrid() {
                     <p class="card-desc">${item.description}</p>
                     
                     <div class="card-actions">
-                        ${cartQty > 0 && !item.requiresCustomization ? `
+                        ${cartQty > 0 && !item.requiresCustomization && !isOutOfStock ? `
                             <div class="card-qty-control">
                                 <button onclick="updateCartQuantity('${item.id}', ${cartQty - 1})">-</button>
                                 <span>${cartQty}</span>
                                 <button onclick="updateCartQuantity('${item.id}', ${cartQty + 1})">+</button>
                             </div>
                         ` : `
-                            <button class="btn ${requiresBtnClass} btn-block" onclick="handleMenuAction('${item.id}')">
+                            <button class="btn ${requiresBtnClass} btn-block" ${disabledAttr} onclick="handleMenuAction('${item.id}')">
                                 ${requiresBtnText}
                             </button>
                         `}
@@ -609,12 +666,17 @@ function getCustomizationHTML(item) {
             <div class="custom-option-section">
                 <h4>Select 2 Sabzis <span class="req-text">* Choose exactly 2</span></h4>
                 <div class="custom-choice-list">
-                    ${sabziOptions.map((sabzi, idx) => `
-                        <div class="custom-choice-item" onclick="toggleCheckboxChoice(this, 'sabzi', 2)">
-                            <div class="choice-checkbox"><i class="fa-solid fa-check"></i></div>
-                            <span class="choice-label-text">${sabzi}</span>
-                        </div>
-                    `).join('')}
+                    ${sabziOptions.map((sabzi, idx) => {
+                        const isAvailable = window.sabziAvailability && window.sabziAvailability[sabzi] !== false;
+                        const disabledClass = isAvailable ? '' : 'disabled';
+                        const clickTrigger = isAvailable ? `onclick="toggleCheckboxChoice(this, 'sabzi', 2)"` : '';
+                        return `
+                            <div class="custom-choice-item ${disabledClass}" ${clickTrigger}>
+                                <div class="choice-checkbox"><i class="fa-solid fa-check"></i></div>
+                                <span class="choice-label-text">${sabzi} ${isAvailable ? '' : '<span style="color: var(--error-color); font-size: 11px; margin-left: 6px;">(Out of Stock)</span>'}</span>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
             </div>
         `;
@@ -624,12 +686,17 @@ function getCustomizationHTML(item) {
             <div class="custom-option-section">
                 <h4>Select 1 Additional Sabzi <span class="req-text">* Choose 1</span></h4>
                 <div class="custom-choice-list">
-                    ${sabziOptions.map((sabzi, idx) => `
-                        <div class="custom-choice-item" onclick="selectRadioChoice(this, 'sabzi')">
-                            <div class="choice-radio"><i class="fa-solid fa-circle"></i></div>
-                            <span class="choice-label-text">${sabzi}</span>
-                        </div>
-                    `).join('')}
+                    ${sabziOptions.map((sabzi, idx) => {
+                        const isAvailable = window.sabziAvailability && window.sabziAvailability[sabzi] !== false;
+                        const disabledClass = isAvailable ? '' : 'disabled';
+                        const clickTrigger = isAvailable ? `onclick="selectRadioChoice(this, 'sabzi')"` : '';
+                        return `
+                            <div class="custom-choice-item ${disabledClass}" ${clickTrigger}>
+                                <div class="choice-radio"><i class="fa-solid fa-circle"></i></div>
+                                <span class="choice-label-text">${sabzi} ${isAvailable ? '' : '<span style="color: var(--error-color); font-size: 11px; margin-left: 6px;">(Out of Stock)</span>'}</span>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
             </div>
         `;
@@ -639,12 +706,17 @@ function getCustomizationHTML(item) {
             <div class="custom-option-section">
                 <h4>Choose 1 Sabzi (Paneer/Veg) <span class="req-text">* Choose 1</span></h4>
                 <div class="custom-choice-list">
-                    ${sabziOptions.map(sabzi => `
-                        <div class="custom-choice-item" onclick="selectRadioChoice(this, 'sabzi')">
-                            <div class="choice-radio"><i class="fa-solid fa-circle"></i></div>
-                            <span class="choice-label-text">${sabzi}</span>
-                        </div>
-                    `).join('')}
+                    ${sabziOptions.map(sabzi => {
+                        const isAvailable = window.sabziAvailability && window.sabziAvailability[sabzi] !== false;
+                        const disabledClass = isAvailable ? '' : 'disabled';
+                        const clickTrigger = isAvailable ? `onclick="selectRadioChoice(this, 'sabzi')"` : '';
+                        return `
+                            <div class="custom-choice-item ${disabledClass}" ${clickTrigger}>
+                                <div class="choice-radio"><i class="fa-solid fa-circle"></i></div>
+                                <span class="choice-label-text">${sabzi} ${isAvailable ? '' : '<span style="color: var(--error-color); font-size: 11px; margin-left: 6px;">(Out of Stock)</span>'}</span>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
             </div>
             <div class="custom-option-section">
@@ -684,12 +756,17 @@ function getCustomizationHTML(item) {
             <div class="custom-option-section">
                 <h4>Select Gravy Sabzi <span class="req-text">* Choose 1</span></h4>
                 <div class="custom-choice-list">
-                    ${sabziOptions.map(sabzi => `
-                        <div class="custom-choice-item" onclick="selectRadioChoice(this, 'gravy')">
-                            <div class="choice-radio"><i class="fa-solid fa-circle"></i></div>
-                            <span class="choice-label-text">${sabzi}</span>
-                        </div>
-                    `).join('')}
+                    ${sabziOptions.map(sabzi => {
+                        const isAvailable = window.sabziAvailability && window.sabziAvailability[sabzi] !== false;
+                        const disabledClass = isAvailable ? '' : 'disabled';
+                        const clickTrigger = isAvailable ? `onclick="selectRadioChoice(this, 'gravy')"` : '';
+                        return `
+                            <div class="custom-choice-item ${disabledClass}" ${clickTrigger}>
+                                <div class="choice-radio"><i class="fa-solid fa-circle"></i></div>
+                                <span class="choice-label-text">${sabzi} ${isAvailable ? '' : '<span style="color: var(--error-color); font-size: 11px; margin-left: 6px;">(Out of Stock)</span>'}</span>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
             </div>
         `;
@@ -1465,6 +1542,50 @@ function renderAdminSandboxOrders() {
     `).join('');
 }
 
+// Render the list of Sabzi toggles in Admin
+function renderAdminSabziToggles() {
+    const container = document.getElementById("admin-sabzi-toggles");
+    if (!container) return;
+
+    const mainCourseItems = menuItems.filter(i => i.category === "Main Course").map(i => i.name);
+
+    container.innerHTML = mainCourseItems.map(sabzi => {
+        const isAvailable = window.sabziAvailability[sabzi] !== false;
+        return `
+            <div class="sabzi-toggle-row">
+                <span class="sabzi-toggle-name">${sabzi}</span>
+                <label class="switch">
+                    <input type="checkbox" class="sabzi-avail-checkbox" data-name="${sabzi}" ${isAvailable ? 'checked' : ''} onchange="toggleSabziAvailability('${sabzi}', this.checked)">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        `;
+    }).join('');
+}
+
+// Toggle sabzi availability on change
+window.toggleSabziAvailability = async function(sabziName, isAvailable) {
+    window.sabziAvailability[sabziName] = isAvailable;
+    try {
+        const res = await fetch('/api/menu-availability', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(window.sabziAvailability)
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`${sabziName} set to ${isAvailable ? 'Available' : 'Out of Stock'}`);
+            renderMenuGrid();
+            renderAdminSabziToggles();
+        } else {
+            throw new Error("Failed to save to server");
+        }
+    } catch (err) {
+        console.error("Error setting menu availability", err);
+        showToast("Error updating inventory on server.");
+    }
+};
+
 // Toast notification trigger
 function showToast(message) {
     const toast = document.getElementById("toast");
@@ -1706,22 +1827,69 @@ function setupEventListeners() {
         switchTab("menu-section");
     });
 
-    // Nav Admin click opens Admin
-    document.getElementById("nav-admin-link").addEventListener("click", (e) => {
+    const handleAdminClick = (e) => {
         e.preventDefault();
-        switchTab("admin-section");
-    });
+        if (isAdminAuthorized) {
+            switchTab("admin-section");
+            renderAdminSabziToggles();
+        } else {
+            document.getElementById("admin-auth-modal").classList.add("open");
+            document.getElementById("auth-passcode").value = "";
+            document.getElementById("auth-error-msg").classList.add("hidden");
+        }
+    };
+
+    // Nav Admin click opens Admin
+    document.getElementById("nav-admin-link").addEventListener("click", handleAdminClick);
 
     // Footer Admin trigger button opens Admin
-    document.getElementById("footer-admin-trigger").addEventListener("click", () => {
-        switchTab("admin-section");
-        // Scroll to admin tab smoothly
-        document.getElementById("admin-section").scrollIntoView({ behavior: 'smooth' });
+    document.getElementById("footer-admin-trigger").addEventListener("click", (e) => {
+        handleAdminClick(e);
+        if (isAdminAuthorized) {
+            // Scroll to admin tab smoothly
+            document.getElementById("admin-section").scrollIntoView({ behavior: 'smooth' });
+        }
     });
 
     // Close admin panel triggers switch back to menu
     document.getElementById("close-admin-btn").addEventListener("click", () => {
         switchTab("menu-section");
+    });
+
+    // Admin Passcode authentication form verify
+    document.getElementById("admin-auth-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const passcode = document.getElementById("auth-passcode").value;
+        const errorMsg = document.getElementById("auth-error-msg");
+        const modalContent = document.querySelector("#admin-auth-modal .modal-content");
+
+        try {
+            const response = await fetch('/api/admin/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ passcode })
+            });
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                isAdminAuthorized = true;
+                document.getElementById("admin-auth-modal").classList.remove("open");
+                showToast("Welcome back, Admin!");
+                switchTab("admin-section");
+                renderAdminSabziToggles();
+            } else {
+                throw new Error("Invalid passcode");
+            }
+        } catch (err) {
+            modalContent.classList.add("shake");
+            errorMsg.classList.remove("hidden");
+            setTimeout(() => modalContent.classList.remove("shake"), 500);
+        }
+    });
+
+    // Close auth modal click
+    document.getElementById("auth-close-btn").addEventListener("click", () => {
+        document.getElementById("admin-auth-modal").classList.remove("open");
     });
 
     // Store Configuration submit triggers save settings
